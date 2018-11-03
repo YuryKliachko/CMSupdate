@@ -37,8 +37,14 @@ def get_latest(config_name: str):
     response = get(url=url)
     if response.status_code == 200:
         temp_file = response.json()
-        return temp_file if temp_file else "Failed to load from:\n{}".format(url)
+        if temp_file:
+            with open(path, "w") as config_file:
+                config_file.write(response.text)
+            return "{} successfuly saved to {}".format(config_name, path)
+        else:
+            return "Failed to load from:\n{}".format(url)
     else:
         return "Failed, status code {}. Service can be temporary unavailable or check your connection". format(response.status_code)
 
-print(get_latest("app_config"))
+
+get_latest("app_config")
