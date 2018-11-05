@@ -66,7 +66,7 @@ def get_latest(config_name):
         temp_file = response.json()
         if temp_file:
             try:
-                with open(local_path, "w") as config_file:
+                with open(local_path, "w", encoding="utf-8") as config_file:
                     config_file.write(response.text)
                 return "{} successfully saved to {}".format(config_name, local_path)
             except FileNotFoundError:
