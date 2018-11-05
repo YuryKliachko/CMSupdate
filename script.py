@@ -19,6 +19,31 @@ from requests import get
 app_version_number = "v4.23.0"
 project_dir = environ.get("PROJECT_DIR")
 
+config_scheme = {"production": {
+                    "url_mapping": {
+                        "cms_config": "http://stubreena.co.uk/digital/cms/common/fallback-cms.json",
+                        "watch_cms_config": "http://stubreena.co.uk/digital/cms/common/WatchCMS.json",
+                        "app_config": "https://s3-eu-west-1.amazonaws.com/ee-dtp-static-s3-test/prod/myeeapp/{}/v4app_config-ios.json".format(app_version_number),
+                        "analytics_config": "http://stubreena.co.uk/digital/analytics/AnalyticsContextData.json",
+                        "ab_test_config": "https://s3-eu-west-1.amazonaws.com/ee-dtp-static-s3-test/prod/myeeapp/abtestconfig/abtestconfig.json"}
+                                },
+                 "qa": {
+                     "url_mapping": {
+                         "cms_config": "http://stubreena.co.uk/digital/cms/common/fallback-cms.json",
+                         "watch_cms_config": "http://stubreena.co.uk/digital/cms/common/WatchCMS.json",
+                         "app_config": "https://s3-eu-west-1.amazonaws.com/ee-dtp-static-s3-test/prod/myeeapp/{}/v4app_config-ios.json".format(app_version_number),
+                         "analytics_config": "http://stubreena.co.uk/digital/analytics/AnalyticsContextData.json",
+                         "ab_test_config": "https://s3-eu-west-1.amazonaws.com/ee-dtp-static-s3-test/prod/myeeapp/abtestconfig/abtestconfig.json"}
+                        }
+                 }
+
+preprocessor_definition = environ.get("GCC_PREPROCESSOR_DEFINITIONS")
+if "PRODUCTION=1" in preprocessor_definition:
+    url_mapping = config_scheme["production"]["url_mapping"]
+elif "QA=1" in preprocessor_definition:
+    url_mapping = config_scheme["qa"]["url_mapping"]
+
+
 print("\"app_version_number\" should be changed for each release manually.\n"
       "It means that each release branch which is in parallel should have its own related \"app_version_number\"")
 
@@ -35,30 +60,9 @@ def get_absolute_local_path(config_name):
         return project_dir + relative_local_paths[config_name]
 
 
-url_mapping = {"cms_config": {"QA": "http://stubreena.co.uk/digital/cms/common/fallback-cms.json",
-                              "PRODUCTION": "http://stubreena.co.uk/digital/cms/common/fallback-cms.json"},
-               "watch_cms_config": {"QA": "http://stubreena.co.uk/digital/cms/common/WatchCMS.json",
-                                    "PRODUCTION": "http://stubreena.co.uk/digital/cms/common/WatchCMS.json"},
-               "app_config": {"QA": "https://s3-eu-west-1.amazonaws.com/ee-dtp-static-s3-test/prod/myeeapp/{}/v4app_config-ios.json".format(app_version_number),
-                              "PRODUCTION": "https://s3-eu-west-1.amazonaws.com/ee-dtp-static-s3-test/prod/myeeapp/{}/v4app_config-ios.json".format(app_version_number)},
-               "analytics_config": {"QA": "http://stubreena.co.uk/digital/analytics/AnalyticsContextData.json",
-                                    "PRODUCTION": "http://stubreena.co.uk/digital/analytics/AnalyticsContextData.json"},
-               "ab_test_config": {"QA": "https://s3-eu-west-1.amazonaws.com/ee-dtp-static-s3-test/prod/myeeapp/abtestconfig/abtestconfig.json",
-                                  "PRODUCTION": "https://s3-eu-west-1.amazonaws.com/ee-dtp-static-s3-test/prod/myeeapp/abtestconfig/abtestconfig.json"}
-               }
-
-
-def get_url(config_name):
-    preprocessor_definition = environ.get("GCC_PREPROCESSOR_DEFINITIONS")
-    if "PRODUCTION=1" in preprocessor_definition:
-        return url_mapping[config_name]["PRODUCTION"]
-    elif "QA=1" in preprocessor_definition:
-        return url_mapping[config_name]["QA"]
-
-
 def get_latest(config_name):
     local_path = get_absolute_local_path(config_name)
-    url = get_url(config_name)
+    url = url_mapping[config_name]
     print("Downloading {} via url:\n{}".format(config_name, url))
     response = get(url=url)
     if response.status_code == 200:
@@ -68,7 +72,7 @@ def get_latest(config_name):
             try:
                 with open(local_path, "w", encoding="utf-8") as config_file:
                     config_file.write(response.text)
-                return "{} successfully saved to {}".format(config_name, local_path)
+                return "{} successfully saved to:\n{}".format(config_name, local_path)
             except FileNotFoundError:
                 return "Failed to open local file via {}. Check that directory exists.".format(local_path)
         else:
