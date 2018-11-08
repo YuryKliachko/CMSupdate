@@ -17,7 +17,6 @@ from os import environ
 from requests import get
 
 app_version_number = "v4.23.0"
-project_dir = environ.get("PROJECT_DIR")
 
 config_scheme = {"production": {
                     "url_mapping": {
@@ -37,23 +36,13 @@ config_scheme = {"production": {
                         }
                  }
 
-preprocessor_definition = environ.get("GCC_PREPROCESSOR_DEFINITIONS")
-if "PRODUCTION=1" in preprocessor_definition:
-    url_mapping = config_scheme["production"]["url_mapping"]
-elif "QA=1" in preprocessor_definition:
-    url_mapping = config_scheme["qa"]["url_mapping"]
-
-
-print("\"app_version_number\" should be changed for each release manually.\n"
-      "It means that each release branch which is in parallel should have its own related \"app_version_number\"")
-
 
 def get_absolute_local_path(config_name):
     relative_local_paths = {"cms_config": "/MyEE/Resources/CMSConfiguration.json",
-                           "watch_cms_config": "/WatchAppExtension/WatchCMS.json",
-                           "app_config": "/MyEE/Resources/MyeeConfig.json",
-                           "analytics_config": "/MyEE/Resources/AnalyticsContextData.json",
-                           "ab_test_config": "/MyEE/Resources/abtestconfig.json"}
+                            "watch_cms_config": "/WatchAppExtension/WatchCMS.json",
+                            "app_config": "/MyEE/Resources/MyeeConfig.json",
+                            "analytics_config": "/MyEE/Resources/AnalyticsContextData.json",
+                            "ab_test_config": "/MyEE/Resources/abtestconfig.json"}
     if not project_dir:
         return ".." + relative_local_paths[config_name]
     else:
@@ -81,4 +70,14 @@ def get_latest(config_name):
         return "Failed, status code {}. Service can be temporary unavailable or check your connection". format(response.status_code)
 
 
-print(get_latest("cms_config"))
+if __name__ == "__main__":
+    project_dir = environ.get("PROJECT_DIR")
+    preprocessor_definition = environ.get("GCC_PREPROCESSOR_DEFINITIONS")
+    if "PRODUCTION=1" in preprocessor_definition:
+        url_mapping = config_scheme["production"]["url_mapping"]
+    elif "QA=1" in preprocessor_definition:
+        url_mapping = config_scheme["qa"]["url_mapping"]
+    print("\"app_version_number\" should be changed for each release manually.\n"
+          "It means that each release branch which is in parallel should have its own related \"app_version_number\"")
+    for config in ("cms_config", "watch_cms_config", "app_config", "analytics_config", "ab_test_config"):
+        get_latest(config)
