@@ -13,7 +13,7 @@ File bundled in app:MyeeConfig.json
 Remote location to update from: https://s3-eu-west-1.amazonaws.com/ee-dtp-static-s3-test/prod/myeeapp/$APP_VERSION_NUMBER/myee-config-ios.json"
 NOTE!!!! The DEFAULT_APP_VERSION_NUMBER should be set for each branch depending on which version the release branch is targetted at
 """
-from asyncio import get_event_loop, gather, as_completed
+from asyncio import get_event_loop, as_completed
 from os import environ
 from requests import get
 
@@ -70,23 +70,33 @@ async def get_latest(config_name):
         else:
             return "Failed to load from:\n{}".format(url)
     else:
-        return "Failed, status code {}. Service can be temporary unavailable or check your connection". format(response.status_code)
+        return "Failed, status code {}. Service can be temporary unavailable or check your connection".format(response.status_code)
 
 
 async def print_when_done(tasks):
+    """Top level coroutine, which execute tasks """
     for result in as_completed(tasks):
         print(await result)
 
 if __name__ == "__main__":
-    project_dir = environ.get("PROJECT_DIR")
+    # Find PROJECT_DIR variable. If it does not exist, returns None
+    project_dir = environ.get("PROJECT_DIR", None)
+    # Retrieve  GCC_PREPROCESSOR_DEFINITIONS variable in order to define what scheme used
     preprocessor_definition = environ.get("GCC_PREPROCESSOR_DEFINITIONS")
+    # If QA is set, then QA scheme is used. If it's absent, but TEMP_VAR123 (this name is not final) is present,
+    # it means that build is being created on a production scheme, but QA config files are needed. If PRODUCTION is set
+    # only,then a production scheme is used.
     if "QA=1" in preprocessor_definition or environ.get("TEMP_VAR123", None) is not None:
         url_mapping = config_scheme["qa"]["url_mapping"]
     elif "PRODUCTION=1" in preprocessor_definition:
         url_mapping = config_scheme["production"]["url_mapping"]
     print("\"app_version_number\" should be changed for each release manually.\n"
           "It means that each release branch which is in parallel should have its own related \"app_version_number\"")
+    # names of config files to be updated
     names = ("cms_config", "watch_cms_config", "app_config", "analytics_config", "ab_test_config")
+    # Create an event loop dor scheduling coroutines
     loop = get_event_loop()
+    # Run coroutines in the loop
     loop.run_until_complete(print_when_done([get_latest(config_name) for config_name in names]))
+    # Close the loop when job is done
     loop.close()
