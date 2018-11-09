@@ -13,7 +13,7 @@ File bundled in app:MyeeConfig.json
 Remote location to update from: https://s3-eu-west-1.amazonaws.com/ee-dtp-static-s3-test/prod/myeeapp/$APP_VERSION_NUMBER/myee-config-ios.json"
 NOTE!!!! The DEFAULT_APP_VERSION_NUMBER should be set for each branch depending on which version the release branch is targetted at
 """
-from asyncio import get_event_loop, gather
+from asyncio import get_event_loop, gather, as_completed
 from os import environ
 from requests import get
 
@@ -64,7 +64,7 @@ async def get_latest(config_name):
             try:
                 with open(local_path, "w", encoding="utf-8") as config_file:
                     config_file.write(response.text)
-                print("{} successfully saved to:\n{}".format(config_name, local_path))
+                return "{} successfully saved to:\n{}".format(config_name, local_path)
             except FileNotFoundError:
                 return "Failed to open local file via {}. Check that directory exists.".format(local_path)
         else:
@@ -72,6 +72,10 @@ async def get_latest(config_name):
     else:
         return "Failed, status code {}. Service can be temporary unavailable or check your connection". format(response.status_code)
 
+
+async def print_when_done(tasks):
+    for result in as_completed(tasks):
+        print(await result)
 
 if __name__ == "__main__":
     project_dir = environ.get("PROJECT_DIR")
@@ -84,4 +88,5 @@ if __name__ == "__main__":
           "It means that each release branch which is in parallel should have its own related \"app_version_number\"")
     names = ("cms_config", "watch_cms_config", "app_config", "analytics_config", "ab_test_config")
     loop = get_event_loop()
-    loop.run_until_complete(gather(*[get_latest(config_name) for config_name in names]))
+    loop.run_until_complete(print_when_done([get_latest(config_name) for config_name in names]))
+    loop.close()
