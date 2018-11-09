@@ -80,7 +80,7 @@ async def print_when_done(tasks):
 if __name__ == "__main__":
     project_dir = environ.get("PROJECT_DIR")
     preprocessor_definition = environ.get("GCC_PREPROCESSOR_DEFINITIONS")
-    if "QA=1" in preprocessor_definition or "TEMP=1" in preprocessor_definition:
+    if "QA=1" in preprocessor_definition or environ.get("TEMP_VAR123", None) is not None:
         url_mapping = config_scheme["qa"]["url_mapping"]
     elif "PRODUCTION=1" in preprocessor_definition:
         url_mapping = config_scheme["production"]["url_mapping"]
