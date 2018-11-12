@@ -70,7 +70,10 @@ async def get_latest(config_name: str):
     response = await request
     if response.status_code == 200:
         print("Remote for {} file successfully downloaded.".format(config_name))
-        temp_file = response.json()
+        try:
+            temp_file = response.json()
+        except ValueError:
+            return "Failed to decode JSON in {}".format(config_name)
         # Check if response is not empty
         if temp_file:
             try:
