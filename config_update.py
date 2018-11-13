@@ -16,6 +16,7 @@ is targeted at
 from asyncio import get_event_loop, as_completed
 from os import environ
 from requests import get
+from jsonschema import validate, ValidationError as JSONValidationError
 
 # A version of the app, which script is going to update config for. Not sure about how can I  use
 # the DEFAULT_APP_VERSION_NUMBER variable mentioned above ^. I did not see it while running the script
@@ -42,6 +43,52 @@ config_mapping = {"production": {
             "analytics_config": "http://stubreena.co.uk/digital/analytics/AnalyticsContextData.json",
             "ab_test_config": "https://s3-eu-west-1.amazonaws.com/ee-dtp-static-s3-test/prod/myeeapp/abtestconfig/abtestconfig.json"}
     }
+}
+
+# JSON Config schemas to be used for validating remote config files
+config_scheme = {
+    "cms_config": {
+        "type": "object",
+        "properties": {
+            "cmsVersion": {"type": "string"},
+            "appleWatch": {"type": "object"},
+            "global": {"type": "object"},
+        },
+        "required": ["cmsVersion", "help", "global"]
+    },
+    "watch_cms_config": {
+        "type": "object",
+        "properties": {
+            "global": {"type": "object"},
+            "appleWatch": {"type": "object"},
+        },
+        "required": ["global", "appleWatch"]
+    },
+    "app_config": {
+        "type": "object",
+        "properties": {
+            "configVersion": {"type": "string",
+                              "enum": [app_version_number]},
+            "clickToCallHelpHub": {"type": "object"},
+        },
+        "required": ["configVersion", "clickToCallHelpHub"]
+    },
+    "analytics_config": {
+        "type": "object",
+        "properties": {
+            "login": {"type": "object"},
+            "help": {"type": "object"},
+        },
+        "required": ["login", "help"]
+    },
+    "ab_test_config": {
+        "type": "object",
+        "properties": {
+            "earlyUpgadePrice": {"type": "object"},
+            "offersYellowDot": {"type": "object"},
+        },
+        "required": ["earlyUpgadePrice", "offersYellowDot"]
+    },
 }
 
 
@@ -77,6 +124,8 @@ async def get_latest(config_name: str):
         # Check if response is not empty
         if temp_file:
             try:
+                # Validate JSON file prior to saving
+                validate(temp_file, config_scheme[config_name])
                 # Write a response to a local config json file
                 with open(local_path, "w", encoding="utf-8") as config_file:
                     config_file.write(response.text)
@@ -84,6 +133,8 @@ async def get_latest(config_name: str):
             # Return a fail message in case of error while writing file
             except FileNotFoundError:
                 return "Failed to open local file via {}. Check that directory exists.".format(local_path)
+            except JSONValidationError as error:
+                return error.message
         # Return an error message if a response comes empty
         else:
             return "Failed to load from:\n{}. Response is empty".format(url)
