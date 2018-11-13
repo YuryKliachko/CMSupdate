@@ -175,7 +175,7 @@ if __name__ == "__main__":
             url_mapping = config_mapping["production"]["url_mapping"]
     else:
         print("Failed to retrieve GCC_PREPROCESSOR_DEFINITIONS variable. It must be set in order to define a schema")
-        exit()
+        exit(1)
     # names of config files to be updated
     config_names = ("cms_config", "watch_cms_config", "app_config", "analytics_config", "ab_test_config")
     # Create an event loop for scheduling coroutines
