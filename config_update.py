@@ -134,7 +134,7 @@ async def get_latest(config_name: str):
             except FileNotFoundError:
                 return "Failed to open local file via {}. Check that directory exists.".format(local_path)
             except JSONValidationError as error:
-                return error.message
+                return "WARNING! {}".format(error.message)
         # Return an error message if a response comes empty
         else:
             return "Failed to load from:\n{}. Response is empty".format(url)
