@@ -120,12 +120,21 @@ async def get_latest(config_name: str):
         try:
             temp_file = response.json()
         except ValueError:
-            return "Failed to decode JSON in {}".format(config_name)
-        # Check if response is not empty
-        if temp_file:
+            print("Failed to decode JSON in {}".format(config_name))
+            exit(1)
+        else:
             try:
                 # Validate JSON file prior to saving
                 validate(temp_file, config_scheme[config_name])
+            except JSONValidationError as error:
+                # If some fields are missed in the JSON instance, the scripts interrupt building
+                if error.validator == "required":
+                    print("ERROR! There is an issue while validating {}. {}".format(config_name, error.message))
+                    exit(1)
+                # In case of other kind of errors, raise a warning message and save a file as it is
+                else:
+                    print("WARNING! There is an issue while validating {}: {}".format(config_name, error.message))
+            try:
                 # Write a response to a local config json file
                 with open(local_path, "w", encoding="utf-8") as config_file:
                     config_file.write(response.text)
@@ -133,11 +142,6 @@ async def get_latest(config_name: str):
             # Return a fail message in case of error while writing file
             except FileNotFoundError:
                 return "Failed to open local file via {}. Check that directory exists.".format(local_path)
-            except JSONValidationError as error:
-                return "WARNING! {}".format(error.message)
-        # Return an error message if a response comes empty
-        else:
-            return "Failed to load from:\n{}. Response is empty".format(url)
     # Inform about failed response
     else:
         return "Failed to download {} with status code {}. Service can be temporary unavailable or check your" \
