@@ -120,7 +120,7 @@ async def get_latest(config_name: str):
         try:
             temp_file = response.json()
         except ValueError:
-            print("Failed to decode JSON in {}".format(config_name))
+            print("error: Failed to decode JSON in {}.".format(config_name))
             exit(1)
         else:
             try:
@@ -129,11 +129,11 @@ async def get_latest(config_name: str):
             except JSONValidationError as error:
                 # If some fields are missed in the JSON instance, the scripts interrupt building
                 if error.validator == "required":
-                    print("ERROR! There is an issue while validating {}. {}".format(config_name, error.message))
+                    print("error: There is an issue while validating {}. {}.".format(config_name, error.message))
                     exit(1)
                 # In case of other kind of errors, raise a warning message and save a file as it is
                 else:
-                    print("WARNING! There is an issue while validating {}: {}".format(config_name, error.message))
+                    print("warning: There is an issue while validating {}: {}.".format(config_name, error.message))
             try:
                 # Write a response to a local config json file
                 with open(local_path, "w", encoding="utf-8") as config_file:
@@ -141,11 +141,13 @@ async def get_latest(config_name: str):
                 return "{} successfully saved to:\n{}".format(config_name, local_path)
             # Return a fail message in case of error while writing file
             except FileNotFoundError:
-                return "Failed to open local file via {}. Check that directory exists.".format(local_path)
+                print("error: Failed to open local file via {}. Check that directory exists.".format(local_path))
+                exit(1)
     # Inform about failed response
     else:
-        return "Failed to download {} with status code {}. Service can be temporary unavailable or check your" \
-               " connection".format(config_name, response.status_code)
+        print("error: Failed to download {} with status code {}. Service can be temporary unavailable or check your" \
+              " connection.".format(config_name, response.status_code))
+        exit(1)
 
 
 async def print_when_done(tasks: list):
@@ -174,7 +176,8 @@ if __name__ == "__main__":
         elif "PRODUCTION=1" in preprocessor_definition:
             url_mapping = config_mapping["production"]["url_mapping"]
     else:
-        print("Failed to retrieve GCC_PREPROCESSOR_DEFINITIONS variable. It must be set in order to define a schema")
+        print("error: Failed to retrieve GCC_PREPROCESSOR_DEFINITIONS variable."
+              " It must be set in order to define a schema.")
         exit(1)
     # names of config files to be updated
     config_names = ("cms_config", "watch_cms_config", "app_config", "analytics_config", "ab_test_config")
