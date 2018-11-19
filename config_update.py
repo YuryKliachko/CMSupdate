@@ -181,14 +181,14 @@ if __name__ == "__main__":
     project_dir = environ.get("PROJECT_DIR")
     # Retrieve  TEMP_VAR123 variable (this name is not final), which is going to be set if the app is being created with
     # a production schema, but QA config files should be used.
-    temp_var = environ.get("TEMP_VAR123")
+    avoid_prod_rules_var = environ.get("EE_AVOID_STRICT_PROD_RULES")
     # Retrieve  GCC_PREPROCESSOR_DEFINITIONS variable in order to define what scheme used
     # If QA is in GCC_PREPROCESSOR_DEFINITIONS or TEMP_VAR123 is present among global env variables,
     # then QA URLs will be used in order to download config files. If PRODUCTION is set only,
     # then a production scheme with the corresponding URLs will be used.
     preprocessor_definition = environ.get("GCC_PREPROCESSOR_DEFINITIONS")
     if preprocessor_definition:
-        if "QA=1" in preprocessor_definition or temp_var is not None:
+        if "QA=1" in preprocessor_definition or avoid_prod_rules_var is not None:
             schema = "qa"
         else:
             schema = "production"
