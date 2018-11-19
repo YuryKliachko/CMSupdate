@@ -17,79 +17,99 @@ from asyncio import get_event_loop, as_completed
 from os import environ
 from requests import get
 from jsonschema import validate, ValidationError as JSONValidationError
+from plistlib import load
 
 # A version of the app, which script is going to update config for. Not sure about how can I  use
 # the DEFAULT_APP_VERSION_NUMBER variable mentioned above ^. I did not see it while running the script
 # on my work station.
-app_version_number = "v4.23.0"
 
 # The dictionary storing URLs for downloading remote config files
 # NOTE!!! Production URLs are not final. Require updating!
-config_mapping = {"production": {
-    "url_mapping": {
-        "cms_config": "http://stubreena.co.uk/digital/cms/common/fallback-cms.json",
-        "watch_cms_config": "http://stubreena.co.uk/digital/cms/common/WatchCMS.json",
-        "app_config": "https://s3-eu-west-1.amazonaws.com/ee-dtp-static-s3-test/prod/myeeapp/{}/v4app_config-ios.json".format(
-            app_version_number),
-        "analytics_config": "http://stubreena.co.uk/digital/analytics/AnalyticsContextData.json",
-        "ab_test_config": "https://s3-eu-west-1.amazonaws.com/ee-dtp-static-s3-test/prod/myeeapp/abtestconfig/abtestconfig.json"}
-},
-    "qa": {
+
+
+def get_url(build_schema, config_name, app_version):
+    config_mapping = {"production": {
         "url_mapping": {
             "cms_config": "http://stubreena.co.uk/digital/cms/common/fallback-cms.json",
             "watch_cms_config": "http://stubreena.co.uk/digital/cms/common/WatchCMS.json",
-            "app_config": "https://s3-eu-west-1.amazonaws.com/ee-dtp-static-s3-test/prod/myeeapp/{}/v4app_config-ios.json".format(
-                app_version_number),
+            "app_config": "https://s3-eu-west-1.amazonaws.com/ee-dtp-static-s3-test/prod/myeeapp/v{}/v4app_config-ios.json".format(
+                app_version),
             "analytics_config": "http://stubreena.co.uk/digital/analytics/AnalyticsContextData.json",
             "ab_test_config": "https://s3-eu-west-1.amazonaws.com/ee-dtp-static-s3-test/prod/myeeapp/abtestconfig/abtestconfig.json"}
+    },
+        "qa": {
+            "url_mapping": {
+                "cms_config": "http://stubreena.co.uk/digital/cms/common/fallback-cms.json",
+                "watch_cms_config": "http://stubreena.co.uk/digital/cms/common/WatchCMS.json",
+                "app_config": "https://s3-eu-west-1.amazonaws.com/ee-dtp-static-s3-test/prod/myeeapp/v{}/v4app_config-ios.json".format(
+                    app_version),
+                "analytics_config": "http://stubreena.co.uk/digital/analytics/AnalyticsContextData.json",
+                "ab_test_config": "https://s3-eu-west-1.amazonaws.com/ee-dtp-static-s3-test/prod/myeeapp/abtestconfig/abtestconfig.json"}
+        }
     }
-}
+    return config_mapping[build_schema]["url_mapping"][config_name]
+
 
 # JSON Config schemas to be used for validating remote config files
-config_scheme = {
-    "cms_config": {
-        "type": "object",
-        "properties": {
-            "cmsVersion": {"type": "string"},
-            "appleWatch": {"type": "object"},
-            "global": {"type": "object"},
+def validate_remote_json(app_version, config_name, json_to_validate):
+    config_scheme = {
+        "cms_config": {
+            "type": "object",
+            "properties": {
+                "cmsVersion": {"type": "string"},
+                "appleWatch": {"type": "object"},
+                "global": {"type": "object"},
+            },
+            "required": ["cmsVersion", "help", "global"]
         },
-        "required": ["cmsVersion", "help", "global"]
-    },
-    "watch_cms_config": {
-        "type": "object",
-        "properties": {
-            "global": {"type": "object"},
-            "appleWatch": {"type": "object"},
+        "watch_cms_config": {
+            "type": "object",
+            "properties": {
+                "global": {"type": "object"},
+                "appleWatch": {"type": "object"},
+            },
+            "required": ["global", "appleWatch"]
         },
-        "required": ["global", "appleWatch"]
-    },
-    "app_config": {
-        "type": "object",
-        "properties": {
-            "configVersion": {"type": "string",
-                              "enum": [app_version_number]},
-            "clickToCallHelpHub": {"type": "object"},
+        "app_config": {
+            "type": "object",
+            "properties": {
+                "configVersion": {"type": "string",
+                                  "enum": ["v" + app_version]},
+                "clickToCallHelpHub": {"type": "object"},
+            },
+            "required": ["configVersion", "clickToCallHelpHub"]
         },
-        "required": ["configVersion", "clickToCallHelpHub"]
-    },
-    "analytics_config": {
-        "type": "object",
-        "properties": {
-            "login": {"type": "object"},
-            "help": {"type": "object"},
+        "analytics_config": {
+            "type": "object",
+            "properties": {
+                "login": {"type": "object"},
+                "help": {"type": "object"},
+            },
+            "required": ["login", "help"]
         },
-        "required": ["login", "help"]
-    },
-    "ab_test_config": {
-        "type": "object",
-        "properties": {
-            "earlyUpgadePrice": {"type": "object"},
-            "offersYellowDot": {"type": "object"},
+        "ab_test_config": {
+            "type": "object",
+            "properties": {
+                "earlyUpgadePrice": {"type": "object"},
+                "offersYellowDot": {"type": "object"},
+            },
+            "required": ["earlyUpgadePrice", "offersYellowDot"]
         },
-        "required": ["earlyUpgadePrice", "offersYellowDot"]
-    },
-}
+    }
+    validate(json_to_validate, config_scheme[config_name])
+
+
+def get_app_version(schema):
+    _project_dir = project_dir
+    if not _project_dir:
+        _project_dir = ".."
+    if schema == "qa":
+        plist_path = _project_dir + "/MyEE/MyEE-QA-Info.plist"
+    else:
+        plist_path = _project_dir + "/MyEE/MyEE-Production-Info.plist"
+    with open(plist_path, "rb") as fp:
+        plist = load(fp)
+    return plist["CFBundleShortVersionString"]
 
 
 def get_local_path(config_name: str):
@@ -109,7 +129,7 @@ def get_local_path(config_name: str):
 async def get_latest(config_name: str):
     _loop = get_event_loop()
     local_path = get_local_path(config_name)
-    url = url_mapping[config_name]
+    url = get_url(schema, config_name, app_version_number)
     print("Downloading {} via url:\n{}".format(config_name, url))
     # Run a blocking GET request in a separate executor
     request = _loop.run_in_executor(None, get, url)
@@ -125,13 +145,13 @@ async def get_latest(config_name: str):
         else:
             try:
                 # Validate JSON file prior to saving
-                validate(temp_file, config_scheme[config_name])
+                validate_remote_json(app_version_number, config_name, temp_file)
             except JSONValidationError as error:
                 # If some fields are missed in the JSON instance, the scripts interrupt building
                 if error.validator == "required":
                     print("error: There is an issue while validating {}. {}.".format(config_name, error.message))
                     exit(1)
-                # In case of other kind of errors, raise a warning message and save a file as it is
+                # In case of another kind of errors, raise a warning message and save a file as it is
                 else:
                     print("warning: There is an issue while validating {}: {}.".format(config_name, error.message))
             try:
@@ -157,9 +177,6 @@ async def print_when_done(tasks: list):
 
 
 if __name__ == "__main__":
-    print("\"app_version_number\" should be changed for each release manually.\n"
-          "It means that each release branch which is in parallel should have its own related \"app_version_number\"\n"
-          "Config files for the app version {} are going to be updated".format(app_version_number))
     # Find PROJECT_DIR variable. If it does not exist, returns None
     project_dir = environ.get("PROJECT_DIR")
     # Retrieve  TEMP_VAR123 variable (this name is not final), which is going to be set if the app is being created with
@@ -172,9 +189,24 @@ if __name__ == "__main__":
     preprocessor_definition = environ.get("GCC_PREPROCESSOR_DEFINITIONS")
     if preprocessor_definition:
         if "QA=1" in preprocessor_definition or temp_var is not None:
-            url_mapping = config_mapping["qa"]["url_mapping"]
-        elif "PRODUCTION=1" in preprocessor_definition:
-            url_mapping = config_mapping["production"]["url_mapping"]
+            schema = "qa"
+        else:
+            schema = "production"
+        try:
+            app_version_number = get_app_version(schema)
+            print("\"app_version_number\" should be changed for each release manually.\n"
+                  "It means that each release branch which is in parallel should have its own related "
+                  "app_version_number\n"
+                  "Config files for the app version {} are going to be updated".format(app_version_number))
+        except FileNotFoundError:
+            print("error: Failed to open plist file")
+            exit(1)
+        except KeyError:
+            print("error: CFBundleShortVersionString key not found in the plist file. App version cannot be defined.")
+            exit(1)
+        except Exception:
+            print("error: Error occurred while parsing plist file. App version cannot be defined.")
+            exit(1)
     else:
         print("error: Failed to retrieve GCC_PREPROCESSOR_DEFINITIONS variable."
               " It must be set in order to define a schema.")
