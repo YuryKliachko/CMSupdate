@@ -24,15 +24,9 @@ from requests.exceptions import RequestException
 from jsonschema import validate, ValidationError as JSONValidationError
 from plistlib import load
 
-# A version of the app, which script is going to update config for. Not sure about how can I  use
-# the DEFAULT_APP_VERSION_NUMBER variable mentioned above ^. I did not see it while running the script
-# on my work station.
-
-# The dictionary storing URLs for downloading remote config files
-# NOTE!!! Production URLs are not final. Require updating!
-
 
 def get_url(build_schema, config_name, app_version):
+    """Returns either production or qa URLs for downloading a remote config file"""
     config_mapping = {"production": {
         "url_mapping": {
             "cms_config": "https://ee.co.uk/ee-static/myeeapp/common/v4app_cms_publish.json",
@@ -59,6 +53,7 @@ def validate_remote_json(app_version, config_name, json_to_validate):
     """Validates an incoming config file using predefined JSON schema. It will check if keys specified in a schema are
     present in a config file and then check if their values have a correct type"""
     # JSON Config schemas to be used for validating remote config files
+    # These schemas should always be updated if there are any changes in config structure
     config_scheme = {
         "cms_config": {
             "type": "object",
@@ -158,11 +153,11 @@ async def get_latest(config_name: str):
                     # Validate JSON file prior to saving
                     validate_remote_json(app_version_number, config_name, temp_file)
                 except JSONValidationError as error:
-                    # If some fields are missed in the JSON instance, the scripts interrupt building
+                    # If production URLs are used, any errors occurred during validation JSON will stop building
                     if schema == "production":
                         print("error: There is an issue while validating {}. {}.".format(config_name, error.message))
                         exit(1)
-                    # In case of another kind of errors, raise a warning message and save a file as it is
+                    # If qa URLs are used, the script will
                     else:
                         print("warning: There is an issue while validating {}: {}.".format(config_name, error.message))
                 try:
